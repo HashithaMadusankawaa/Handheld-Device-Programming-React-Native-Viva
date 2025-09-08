@@ -1,0 +1,60 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Land Measurement Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 100vh; width: 100vw; }
+    .leaflet-container { touch-action: none; }
+    #info { position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; padding: 5px; }
+    #send { margin-top:5px; }
+  </style>
+</head>
+<body>
+  <div id="info">Tap on map to add points. <button id="send">Send to App</button></div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf/turf.min.js"></script>
+  <script>
+    const map = L.map('map').setView([7.8731, 80.7718], 7); // center Sri Lanka
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+    }).addTo(map);
+
+    let points = [];
+    let polygon = null;
+
+    function updatePolygon() {
+      if (polygon) map.removeLayer(polygon);
+      if (points.length < 2) return;
+      polygon = L.polygon(points, { color: 'red', fillColor: 'rgba(255,0,0,0.2)' }).addTo(map);
+    }
+
+    map.on('click', function(e) {
+      points.push([e.latlng.lat, e.latlng.lng]);
+      L.marker(e.latlng).addTo(map);
+      updatePolygon();
+    });
+
+    function calculateMeasurement() {
+      if (points.length < 3) return { area: 0, perimeter: 0 };
+      const poly = turf.polygon([points.concat([points[0]])]);
+      const area = turf.area(poly);
+      const perimeter = turf.length(turf.lineString(points.concat([points[0]])), { units: 'meters' });
+      return { area, perimeter };
+    }
+
+    document.getElementById('send').addEventListener('click', function() {
+      const measurement = {
+        points: points,
+        ...calculateMeasurement()
+      };
+      window.ReactNativeWebView.postMessage(JSON.stringify(measurement));
+    });
+  </script>
+</body>
+</html>
